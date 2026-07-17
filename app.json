@@ -1,0 +1,59 @@
+{
+  "expo": {
+    "name": "RollCall",
+    "slug": "RollCall",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "RollCall looks at your recent photos to suggest memories. Nothing is shared without your approval.",
+        "NSPhotoLibraryAddUsageDescription": "RollCall only reads your library to build moment digests.",
+        "NSContactsUsageDescription": "RollCall finds friends already on the app from your contacts so you can invite them."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#F3F5F7",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_VIDEO",
+        "ACCESS_MEDIA_LOCATION",
+        "READ_CONTACTS"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow RollCall to choose a profile photo from your library."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow RollCall to access your photos to suggest memories. Nothing is shared without your approval.",
+          "savePhotosPermission": false,
+          "isAccessMediaLocationEnabled": true
+        }
+      ],
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Allow RollCall to find friends already on the app from your contacts."
+        }
+      ],
+      "expo-secure-store"
+    ]
+  }
+}

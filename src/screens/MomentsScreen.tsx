@@ -3,6 +3,7 @@ import {
   Dimensions,
   FlatList,
   Image,
+  Modal,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Pressable,
@@ -11,6 +12,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppState } from '../state/AppState';
 import { colors } from '../theme/colors';
@@ -216,6 +218,13 @@ export function MomentsScreen() {
   } = useAppState();
   const drafts = moments.filter((m) => m.status === 'draft');
   const [scanStatus, setScanStatus] = useState<string | null>(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
+
+  useEffect(() => {
+    if (drafts.length === 0 && reviewOpen) {
+      setReviewOpen(false);
+    }
+  }, [drafts.length, reviewOpen]);
 
   const onScan = async () => {
     setScanStatus(null);
@@ -228,24 +237,36 @@ export function MomentsScreen() {
     }
   };
 
+  const openReview = () => {
+    clearNewMemoryBadge();
+    setReviewOpen(true);
+  };
+
+  const closeReview = () => {
+    setReviewOpen(false);
+  };
+
+  const readyCount = newMemoryCount > 0 ? newMemoryCount : drafts.length;
+  const showReadyBanner = drafts.length > 0;
+
   return (
     <View style={styles.screen}>
-      <Text style={styles.heading}>For you</Text>
+      <Text style={styles.heading}>Create Memories</Text>
       <Text style={styles.sub}>
-        Camera-roll events, grouped automatically. Remove photos you don’t want, edit the
-        title, then post.
+        Camera-roll events, grouped automatically. We’ll let you know when a
+        memory is ready to review.
       </Text>
 
-      {newMemoryCount > 0 ? (
+      {showReadyBanner ? (
         <Pressable
-          onPress={clearNewMemoryBadge}
+          onPress={openReview}
           style={({ pressed }) => [styles.banner, pressed && styles.pressed]}
         >
           <Text style={styles.bannerTitle}>
-            {newMemoryCount} new memor{newMemoryCount === 1 ? 'y' : 'ies'} ready
+            {readyCount} new memor{readyCount === 1 ? 'y' : 'ies'} ready
           </Text>
           <Text style={styles.bannerBody}>
-            Review them below — nothing posts until you choose.
+            Tap to review, edit, and post — nothing shares until you choose.
           </Text>
         </Pressable>
       ) : null}
@@ -256,36 +277,53 @@ export function MomentsScreen() {
         </View>
       ) : null}
 
-      {drafts.length === 0 ? (
-        <View style={styles.empty}>
-          <Text style={styles.emptyTitle}>
-            {memoryScanning ? 'Looking for moments…' : 'You’re caught up'}
-          </Text>
-          <Text style={styles.emptyBody}>
-            {memoryScanning
-              ? 'Scanning recent photos from your camera roll.'
+      <View style={styles.empty}>
+        <Text style={styles.emptyTitle}>
+          {memoryScanning
+            ? 'Looking for moments…'
+            : showReadyBanner
+              ? 'Memories waiting'
+              : 'You’re caught up'}
+        </Text>
+        <Text style={styles.emptyBody}>
+          {memoryScanning
+            ? 'Scanning recent photos from your camera roll.'
+            : showReadyBanner
+              ? 'Open the card above to review your suggested memories.'
               : 'Need at least 3 photos taken within a few hours. Then tap scan.'}
-          </Text>
-          {!memoryScanning ? (
-            <Pressable
-              onPress={() => void onScan()}
-              style={({ pressed }) => [styles.refreshBtn, pressed && styles.pressed]}
-            >
-              <Text style={styles.refreshLabel}>Scan camera roll</Text>
-            </Pressable>
-          ) : null}
-        </View>
-      ) : (
-        <>
+        </Text>
+        {!memoryScanning ? (
           <Pressable
             onPress={() => void onScan()}
-            disabled={memoryScanning}
-            style={({ pressed }) => [styles.scanAgain, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.refreshBtn, pressed && styles.pressed]}
           >
             <Text style={styles.refreshLabel}>
-              {memoryScanning ? 'Scanning…' : 'Scan again'}
+              {showReadyBanner ? 'Scan again' : 'Scan camera roll'}
             </Text>
           </Pressable>
+        ) : null}
+      </View>
+
+      <Modal
+        visible={reviewOpen}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={closeReview}
+      >
+        <SafeAreaView style={styles.modalSafe}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Review memory</Text>
+            <Pressable
+              onPress={closeReview}
+              hitSlop={10}
+              style={({ pressed }) => [styles.modalClose, pressed && styles.pressed]}
+            >
+              <Text style={styles.modalCloseLabel}>Close</Text>
+            </Pressable>
+          </View>
+          <Text style={styles.modalSub}>
+            Edit the title, remove photos you don’t want, then post.
+          </Text>
           <FlatList
             data={drafts}
             keyExtractor={(item) => item.id}
@@ -304,9 +342,17 @@ export function MomentsScreen() {
                 />
               );
             }}
+            ListEmptyComponent={
+              <View style={styles.modalEmpty}>
+                <Text style={styles.emptyTitle}>All done</Text>
+                <Text style={styles.emptyBody}>
+                  You’ve reviewed every suggested memory.
+                </Text>
+              </View>
+            }
           />
-        </>
-      )}
+        </SafeAreaView>
+      </Modal>
     </View>
   );
 }
@@ -491,4 +537,41 @@ const styles = StyleSheet.create({
     backgroundColor: colors.chipBg,
   },
   refreshLabel: { fontSize: 14, fontWeight: '600', color: colors.ink },
+  modalSafe: { flex: 1, backgroundColor: colors.bg },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: colors.ink,
+    letterSpacing: -0.4,
+  },
+  modalClose: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: colors.chipBg,
+  },
+  modalCloseLabel: { fontSize: 14, fontWeight: '600', color: colors.ink },
+  modalSub: {
+    fontSize: 14,
+    color: colors.muted,
+    lineHeight: 20,
+    paddingHorizontal: 24,
+    marginBottom: 12,
+  },
+  modalEmpty: {
+    marginHorizontal: 24,
+    marginTop: 24,
+    padding: 20,
+    borderRadius: 24,
+    backgroundColor: colors.surface,
+    gap: 8,
+  },
 });

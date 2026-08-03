@@ -1,4 +1,5 @@
 import { clusterMoments } from '../lib/clusterMoments';
+import { createMemoryDraftSync } from '../lib/memoryPipeline/createMemoryDraft';
 import type {
   Connection,
   Invite,
@@ -115,11 +116,14 @@ export const friendPhotos: PhotoAsset[] = Array.from({ length: 5 }, (_, i) => ({
 
 const rawClusters = clusterMoments(mockPhotos);
 
-/** Enrich clusters with AI-style titles (mock until real AI). */
-export const mockDraftMoments: Moment[] = rawClusters.map((m, i) => {
+/** Enrich clusters with place-aware titles (mock copy until live geocode). */
+export const mockDraftMoments: Moment[] = rawClusters.map((cluster, i) => {
   if (i === 0) {
     return {
-      ...m,
+      ...createMemoryDraftSync(cluster, {
+        placeName: 'Los Angeles',
+        locationLabel: 'Los Angeles, CA',
+      }),
       title: 'Golden Hour in Los Angeles',
       locationLabel: 'Los Angeles, CA',
       chips: [
@@ -130,7 +134,10 @@ export const mockDraftMoments: Moment[] = rawClusters.map((m, i) => {
     };
   }
   return {
-    ...m,
+    ...createMemoryDraftSync(cluster, {
+      placeName: 'San Francisco',
+      locationLabel: 'San Francisco Bay Area',
+    }),
     title: 'Bay Weekend Wander',
     locationLabel: 'San Francisco Bay Area',
     chips: [
@@ -142,8 +149,11 @@ export const mockDraftMoments: Moment[] = rawClusters.map((m, i) => {
 });
 
 export const alexSharedMoment: Moment = {
-  ...clusterMoments(friendPhotos)[0],
-  id: 'alex-moment-1',
+  ...createMemoryDraftSync(clusterMoments(friendPhotos)[0], {
+    id: 'alex-moment-1',
+    placeName: 'Coronado',
+    locationLabel: 'Coronado, CA',
+  }),
   title: 'Golden Hour at Coronado',
   locationLabel: 'Coronado, CA',
   chips: [

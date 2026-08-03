@@ -1,4 +1,4 @@
-import type { Moment, PhotoAsset } from '../types/moment';
+import type { AssetLocation, PhotoAsset } from '../types/moment';
 
 export type ClusterOptions = {
   /** Max gap between consecutive photos before starting a new moment */
@@ -13,6 +13,14 @@ const DEFAULTS: Required<ClusterOptions> = {
   maxGapMs: 6 * 60 * 60 * 1000, // 6 hours
   maxDistanceMeters: 25_000, // 25 km — trips stay together; city hops may split
   minPhotos: 3,
+};
+
+/** Raw time/GPS cluster — no title or cover yet. */
+export type PhotoCluster = {
+  photos: PhotoAsset[];
+  startAt: number;
+  endAt: number;
+  centroid?: AssetLocation;
 };
 
 /** Haversine distance in meters */
@@ -32,7 +40,7 @@ export function distanceMeters(
   return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
-function centroidOf(photos: PhotoAsset[]) {
+export function centroidOf(photos: PhotoAsset[]): AssetLocation | undefined {
   const withLoc = photos.filter((p) => p.location);
   if (withLoc.length === 0) return undefined;
   const sum = withLoc.reduce(
@@ -48,33 +56,14 @@ function centroidOf(photos: PhotoAsset[]) {
   };
 }
 
-function formatTitle(startAt: number, endAt: number, centroid?: Moment['centroid']): string {
-  const start = new Date(startAt);
-  const end = new Date(endAt);
-  const sameDay =
-    start.getFullYear() === end.getFullYear() &&
-    start.getMonth() === end.getMonth() &&
-    start.getDate() === end.getDate();
-
-  const dayLabel = start.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-  });
-
-  if (centroid) {
-    return sameDay ? `Day out · ${dayLabel}` : `Trip · ${dayLabel}`;
-  }
-  return sameDay ? `Moments · ${dayLabel}` : `Weekend · ${dayLabel}`;
-}
-
 /**
- * Clusters camera-roll assets into draft moments using time gaps + optional GPS.
- * Pure function — easy to unit test and swap for a smarter curator later.
+ * Clusters camera-roll assets into raw photo groups using time gaps + optional GPS.
+ * Pure function — title/cover enrichment happens in later pipeline stages.
  */
 export function clusterMoments(
   assets: PhotoAsset[],
   options: ClusterOptions = {},
-): Moment[] {
+): PhotoCluster[] {
   const { maxGapMs, maxDistanceMeters, minPhotos } = { ...DEFAULTS, ...options };
   if (assets.length === 0) return [];
 
@@ -104,21 +93,14 @@ export function clusterMoments(
 
   return groups
     .filter((g) => g.length >= minPhotos)
-    .map((photos, index) => {
+    .map((photos) => {
       const startAt = photos[0].createdAt;
       const endAt = photos[photos.length - 1].createdAt;
-      const centroid = centroidOf(photos);
-      const coverPhotoId = photos[Math.floor(photos.length / 2)].id;
-
       return {
-        id: `moment-${startAt}-${index}`,
-        title: formatTitle(startAt, endAt, centroid),
+        photos,
         startAt,
         endAt,
-        photoIds: photos.map((p) => p.id),
-        coverPhotoId,
-        centroid,
-        status: 'draft' as const,
+        centroid: centroidOf(photos),
       };
     });
 }

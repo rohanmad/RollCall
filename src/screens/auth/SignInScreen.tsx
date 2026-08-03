@@ -3,7 +3,11 @@ import { TextInput, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AuthScreen } from '../../components/AuthScreen';
 import { FormField } from '../../components/FormField';
 import { PrimaryButton } from '../../components/PrimaryButton';
-import { validateEmail, validatePassword } from '../../lib/validation';
+import {
+  validateEmail,
+  validateEmailFormat,
+  validatePasswordPresent,
+} from '../../lib/validation';
 import { useAuth } from '../../state/AuthState';
 import { colors } from '../../theme/colors';
 
@@ -34,7 +38,7 @@ export function SignInScreen({
 
   const onSubmit = async () => {
     const eErr = validateEmail(email);
-    const pErr = validatePassword(password);
+    const pErr = validatePasswordPresent(password);
     setEmailError(eErr);
     setPasswordError(pErr);
     if (eErr || pErr) return;
@@ -78,7 +82,10 @@ export function SignInScreen({
           value={email}
           onChangeText={(v) => {
             setEmail(v);
-            setEmailError(null);
+            setEmailError(validateEmailFormat(v));
+          }}
+          onBlur={() => {
+            if (email.trim()) setEmailError(validateEmail(email));
           }}
           error={emailError}
           autoCapitalize="none"

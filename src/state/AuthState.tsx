@@ -16,6 +16,7 @@ import {
   validateBio,
   validateEmail,
   validatePassword,
+  validatePasswordPresent,
   validateUsernameFormat,
 } from '../lib/validation';
 
@@ -100,7 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }): Promise<Ok | Fail> => {
     if (busy.current) return { ok: false, error: 'Please wait…' };
     const emailErr = validateEmail(input.email);
-    const passErr = validatePassword(input.password);
+    const passErr = validatePasswordPresent(input.password);
     if (emailErr || passErr) {
       return { ok: false, error: emailErr || passErr || 'Invalid input' };
     }
@@ -212,7 +213,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }): Promise<Ok | Fail> => {
       if (!user) return { ok: false, error: 'Not signed in.' };
       if (busy.current) return { ok: false, error: 'Please wait…' };
-      const currentErr = validatePassword(input.currentPassword);
+      const currentErr = validatePasswordPresent(input.currentPassword);
       const newErr = validatePassword(input.newPassword);
       if (currentErr) return { ok: false, error: currentErr };
       if (newErr) return { ok: false, error: newErr };

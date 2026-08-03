@@ -63,8 +63,8 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   inputError: { borderColor: colors.like },
-  error: { fontSize: 13, color: colors.like, fontWeight: '500' },
-  hint: { fontSize: 13, color: colors.muted },
+  error: { fontSize: 12, color: colors.like, fontWeight: '500' },
+  hint: { fontSize: 12, color: colors.muted },
   hintOk: { color: '#1F4D3A', fontWeight: '600' },
   hintBad: { color: colors.like, fontWeight: '600' },
 });

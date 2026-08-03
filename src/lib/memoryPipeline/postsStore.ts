@@ -135,6 +135,47 @@ export async function savePostEngagement(
   });
 }
 
+/** Persist sync status onto a stored post/moment after cloud upload settles. */
+export async function updatePostedMemorySync(input: {
+  postId: string;
+  memoryId: string;
+  syncStatus: SharedMomentPost['syncStatus'];
+  syncError?: string;
+}): Promise<void> {
+  const store = await loadPostedMemories();
+  let changed = false;
+  let momentId: string | undefined;
+
+  const posts = store.posts.map((p) => {
+    if (p.id !== input.postId && p.remoteId !== input.memoryId) return p;
+    changed = true;
+    momentId = p.momentId;
+    return {
+      ...p,
+      remoteId: input.memoryId,
+      syncStatus: input.syncStatus,
+      syncError: input.syncError,
+    };
+  });
+
+  const sharedMoments = store.sharedMoments.map((m) => {
+    const match =
+      m.remoteId === input.memoryId ||
+      (momentId != null && m.id === momentId);
+    if (!match) return m;
+    changed = true;
+    return {
+      ...m,
+      remoteId: input.memoryId,
+      syncStatus: input.syncStatus,
+      syncError: input.syncError,
+    };
+  });
+
+  if (!changed) return;
+  await savePostedMemories({ ...store, posts, sharedMoments });
+}
+
 /** Apply stored engagement onto a seeded/hydrated post list. */
 export function applyEngagement(
   posts: SharedMomentPost[],
@@ -151,3 +192,4 @@ export function applyEngagement(
     };
   });
 }
+

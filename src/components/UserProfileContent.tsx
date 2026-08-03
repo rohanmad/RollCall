@@ -22,7 +22,6 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { MemoryCard } from './MemoryCard';
-import { CURRENT_USER_ID } from '../data/mockData';
 import { useAppState } from '../state/AppState';
 import { useAuth } from '../state/AuthState';
 import { colors } from '../theme/colors';
@@ -78,17 +77,22 @@ export function UserProfileContent({ userId, isOwnProfile = false }: Props) {
     usersById,
     moments,
     photosById,
+    me,
     getPostsByUser,
     acceptInvite,
     declineInvite,
+    cancelInvite,
+    removeFriend,
     deleteMemory,
     searchUsers,
     sendInvite,
+    unreadNotificationCount,
   } = useAppState();
   const { user: authUser, updateAvatar } = useAuth();
+  const myId = authUser?.id ?? me.id;
 
   const [friendsOpen, setFriendsOpen] = useState(false);
-  const [selected, setSelected] = useState<MemoryItem | null>(null);
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [menuPostId, setMenuPostId] = useState<string | null>(null);
   const [updatingAvatar, setUpdatingAvatar] = useState(false);
   const [removingIds, setRemovingIds] = useState<Record<string, Animated.Value>>(
@@ -118,14 +122,14 @@ export function UserProfileContent({ userId, isOwnProfile = false }: Props) {
   const outgoingToUser = invites.find(
     (i) =>
       i.status === 'pending' &&
-      i.fromUserId === CURRENT_USER_ID &&
+      i.fromUserId === myId &&
       i.toUserId === userId,
   );
   const incomingFromUser = invites.find(
     (i) =>
       i.status === 'pending' &&
       i.fromUserId === userId &&
-      i.toUserId === CURRENT_USER_ID,
+      i.toUserId === myId,
   );
   const displayedFriendCount = isOwnProfile
     ? connections.length
@@ -133,10 +137,10 @@ export function UserProfileContent({ userId, isOwnProfile = false }: Props) {
 
   const friends = connections.map((c) => usersById[c.userId]).filter(Boolean);
   const incoming = invites.filter(
-    (i) => i.toUserId === CURRENT_USER_ID && i.status === 'pending',
+    (i) => i.toUserId === myId && i.status === 'pending',
   );
   const outgoing = invites.filter(
-    (i) => i.fromUserId === CURRENT_USER_ID && i.status === 'pending',
+    (i) => i.fromUserId === myId && i.status === 'pending',
   );
   const pendingCount = incoming.length + outgoing.length;
 
@@ -157,6 +161,15 @@ export function UserProfileContent({ userId, isOwnProfile = false }: Props) {
       })
       .filter(Boolean) as MemoryItem[];
   }, [getPostsByUser, userId, moments, photosById]);
+
+  // Live lookup so likes/comments update inside the profile viewer modal.
+  const selected = useMemo(
+    () =>
+      selectedPostId
+        ? (userPosts.find((item) => item.post.id === selectedPostId) ?? null)
+        : null,
+    [selectedPostId, userPosts],
+  );
 
   useEffect(() => {
     if (!friendsOpen) {
@@ -196,6 +209,12 @@ export function UserProfileContent({ userId, isOwnProfile = false }: Props) {
     const parent = navigation.getParent();
     if (parent) parent.navigate('Settings');
     else navigation.navigate('Settings');
+  };
+
+  const openNotifications = () => {
+    const parent = navigation.getParent();
+    if (parent) parent.navigate('Notifications');
+    else navigation.navigate('Notifications');
   };
 
   const pickAvatar = async () => {
@@ -257,7 +276,7 @@ export function UserProfileContent({ userId, isOwnProfile = false }: Props) {
   };
 
   const openMemoryFocus = (postId: string) => {
-    setSelected(null);
+    setSelectedPostId(null);
     const parent = navigation.getParent();
     if (parent) parent.navigate('MemoryFocus', { postId });
     else navigation.navigate('MemoryFocus', { postId });
@@ -266,7 +285,7 @@ export function UserProfileContent({ userId, isOwnProfile = false }: Props) {
   const openUserProfile = (targetUserId: string) => {
     setFriendsOpen(false);
     setSearchQuery('');
-    if (targetUserId === CURRENT_USER_ID || targetUserId === authUser?.id) {
+    if (targetUserId === myId || targetUserId === authUser?.id) {
       return;
     }
     const parent = navigation.getParent();
@@ -300,7 +319,7 @@ export function UserProfileContent({ userId, isOwnProfile = false }: Props) {
                 delete next[postId];
                 return next;
               });
-              setSelected((cur) => (cur?.post.id === postId ? null : cur));
+              setSelectedPostId((cur) => (cur === postId ? null : cur));
             });
           },
         },
@@ -375,21 +394,47 @@ export function UserProfileContent({ userId, isOwnProfile = false }: Props) {
                     <Text style={styles.handle}>{user.handle}</Text>
                   </View>
                   {isOwnProfile ? (
-                    <Pressable
-                      onPress={openSettings}
-                      hitSlop={10}
-                      style={({ pressed }) => [
-                        styles.iconBtn,
-                        pressed && styles.pressed,
-                      ]}
-                      accessibilityLabel="Settings"
-                    >
-                      <Ionicons
-                        name="settings-outline"
-                        size={22}
-                        color={colors.ink}
-                      />
-                    </Pressable>
+                    <View style={styles.headerActions}>
+                      <Pressable
+                        onPress={openNotifications}
+                        hitSlop={10}
+                        style={({ pressed }) => [
+                          styles.iconBtn,
+                          pressed && styles.pressed,
+                        ]}
+                        accessibilityLabel="Notifications"
+                      >
+                        <Ionicons
+                          name="notifications-outline"
+                          size={22}
+                          color={colors.ink}
+                        />
+                        {unreadNotificationCount > 0 ? (
+                          <View style={styles.notifBadge}>
+                            <Text style={styles.notifBadgeText}>
+                              {unreadNotificationCount > 9
+                                ? '9+'
+                                : unreadNotificationCount}
+                            </Text>
+                          </View>
+                        ) : null}
+                      </Pressable>
+                      <Pressable
+                        onPress={openSettings}
+                        hitSlop={10}
+                        style={({ pressed }) => [
+                          styles.iconBtn,
+                          pressed && styles.pressed,
+                        ]}
+                        accessibilityLabel="Settings"
+                      >
+                        <Ionicons
+                          name="settings-outline"
+                          size={22}
+                          color={colors.ink}
+                        />
+                      </Pressable>
+                    </View>
                   ) : null}
                 </View>
                 <View style={styles.stats}>
@@ -423,16 +468,35 @@ export function UserProfileContent({ userId, isOwnProfile = false }: Props) {
               <Text style={styles.bio}>{user.bio}</Text>
             ) : isOwnProfile ? (
               <Pressable onPress={openSettings} hitSlop={6}>
-                <Text style={styles.bioPlaceholder}>Add a bio in Settings</Text>
+                <Text style={styles.bioPlaceholder}>Add a bio</Text>
               </Pressable>
             ) : null}
             {!isOwnProfile ? (
               <View style={styles.friendAction}>
                 {isFriend ? (
-                  <View style={styles.friendPill}>
+                  <Pressable
+                    onPress={() => {
+                      Alert.alert(
+                        'Remove friend?',
+                        `Remove @${user?.name ?? 'this user'} from your friends?`,
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Remove',
+                            style: 'destructive',
+                            onPress: () => removeFriend(userId),
+                          },
+                        ],
+                      );
+                    }}
+                    style={({ pressed }) => [
+                      styles.friendPill,
+                      pressed && styles.pressed,
+                    ]}
+                  >
                     <Ionicons name="people" size={14} color={colors.ink} />
                     <Text style={styles.friendPillLabel}>Friends</Text>
-                  </View>
+                  </Pressable>
                 ) : incomingFromUser ? (
                   <Pressable
                     onPress={() => acceptInvite(incomingFromUser.id)}
@@ -445,9 +509,29 @@ export function UserProfileContent({ userId, isOwnProfile = false }: Props) {
                     <Text style={styles.friendBtnPrimaryLabel}>Accept request</Text>
                   </Pressable>
                 ) : outgoingToUser ? (
-                  <View style={[styles.friendBtn, styles.friendBtnMuted]}>
+                  <Pressable
+                    onPress={() => {
+                      Alert.alert(
+                        'Cancel request?',
+                        'Withdraw this friend request?',
+                        [
+                          { text: 'Keep', style: 'cancel' },
+                          {
+                            text: 'Cancel request',
+                            style: 'destructive',
+                            onPress: () => cancelInvite(outgoingToUser.id),
+                          },
+                        ],
+                      );
+                    }}
+                    style={({ pressed }) => [
+                      styles.friendBtn,
+                      styles.friendBtnMuted,
+                      pressed && styles.pressed,
+                    ]}
+                  >
                     <Text style={styles.friendBtnMutedLabel}>Requested</Text>
-                  </View>
+                  </Pressable>
                 ) : (
                   <Pressable
                     onPress={() => sendInvite(userId)}
@@ -487,7 +571,7 @@ export function UserProfileContent({ userId, isOwnProfile = false }: Props) {
               ]}
             >
               <Pressable
-                onPress={() => setSelected(item)}
+                onPress={() => setSelectedPostId(item.post.id)}
                 style={({ pressed }) => [pressed && styles.pressed]}
               >
                 {item.cover ? (
@@ -603,7 +687,7 @@ export function UserProfileContent({ userId, isOwnProfile = false }: Props) {
                       <View style={styles.searchEmpty}>
                         <Text style={styles.searchEmptyTitle}>No people found</Text>
                         <Text style={styles.searchEmptyBody}>
-                          Try another username — exact matches work best.
+                          Try another username.
                         </Text>
                       </View>
                     ) : (
@@ -639,11 +723,6 @@ export function UserProfileContent({ userId, isOwnProfile = false }: Props) {
                   </View>
                 ) : (
                   <>
-                    <Text style={[styles.sheetSub, styles.sheetPadHorizontal]}>
-                      Mutual connections. Posted memories are shared with everyone
-                      here. Search to find people by username.
-                    </Text>
-
                     {incoming.length > 0 ? (
                       <View style={styles.sheetSection}>
                         <Text style={styles.sectionLabel}>Requests</Text>
@@ -685,25 +764,37 @@ export function UserProfileContent({ userId, isOwnProfile = false }: Props) {
                         {outgoing.map((invite) => {
                           const to = usersById[invite.toUserId];
                           return (
-                            <Pressable
-                              key={invite.id}
-                              onPress={() => openUserProfile(invite.toUserId)}
-                              style={({ pressed }) => [
-                                styles.personRow,
-                                pressed && styles.pressed,
-                              ]}
-                            >
-                              <PersonAvatar
-                                name={to?.name ?? '?'}
-                                uri={to?.avatarUri}
-                              />
-                              <View style={{ flex: 1 }}>
-                                <Text style={styles.personName}>{to?.name}</Text>
-                                <Text style={styles.personMeta}>
-                                  Waiting for a reply
-                                </Text>
-                              </View>
-                            </Pressable>
+                            <View key={invite.id} style={styles.personRow}>
+                              <Pressable
+                                onPress={() => openUserProfile(invite.toUserId)}
+                                style={({ pressed }) => [
+                                  {
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    gap: 12,
+                                    flex: 1,
+                                  },
+                                  pressed && styles.pressed,
+                                ]}
+                              >
+                                <PersonAvatar
+                                  name={to?.name ?? '?'}
+                                  uri={to?.avatarUri}
+                                />
+                                <View style={{ flex: 1 }}>
+                                  <Text style={styles.personName}>{to?.name}</Text>
+                                  <Text style={styles.personMeta}>
+                                    Waiting for a reply
+                                  </Text>
+                                </View>
+                              </Pressable>
+                              <Pressable
+                                onPress={() => cancelInvite(invite.id)}
+                                style={styles.ghostBtn}
+                              >
+                                <Text style={styles.ghostBtnLabel}>Cancel</Text>
+                              </Pressable>
+                            </View>
                           );
                         })}
                       </View>
@@ -755,12 +846,12 @@ export function UserProfileContent({ userId, isOwnProfile = false }: Props) {
       <Modal
         visible={!!selected}
         animationType="fade"
-        onRequestClose={() => setSelected(null)}
+        onRequestClose={() => setSelectedPostId(null)}
       >
         <View style={styles.viewer}>
           <View style={styles.viewerBar}>
             <Text style={styles.viewerTitle}>Memory</Text>
-            <Pressable onPress={() => setSelected(null)}>
+            <Pressable onPress={() => setSelectedPostId(null)}>
               <Text style={styles.sheetClose}>Close</Text>
             </Pressable>
           </View>
@@ -853,6 +944,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: -6,
     marginRight: -6,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  notifBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    backgroundColor: colors.like,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notifBadgeText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '700',
   },
   stats: { flexDirection: 'row', gap: 24 },
   stat: { alignItems: 'flex-start' },

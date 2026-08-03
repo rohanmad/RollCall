@@ -42,11 +42,13 @@ export function MemoryFocusScreen({ route, navigation }: Props) {
   const {
     feed,
     discoverFeed,
+    myPosts,
     moments,
     photosById,
     me,
     toggleLike,
     addComment,
+    loadMemoryEngagement,
   } = useAppState();
 
   const inputRef = useRef<TextInput>(null);
@@ -54,8 +56,9 @@ export function MemoryFocusScreen({ route, navigation }: Props) {
   const [photoIndex, setPhotoIndex] = useState(0);
 
   const post = useMemo(
-    () => [...feed, ...discoverFeed].find((p) => p.id === postId),
-    [feed, discoverFeed, postId],
+    () =>
+      [...myPosts, ...feed, ...discoverFeed].find((p) => p.id === postId),
+    [myPosts, feed, discoverFeed, postId],
   );
   const moment = useMemo(
     () => (post ? moments.find((m) => m.id === post.momentId) : undefined),
@@ -71,6 +74,10 @@ export function MemoryFocusScreen({ route, navigation }: Props) {
     const t = setTimeout(() => inputRef.current?.focus(), 420);
     return () => clearTimeout(t);
   }, []);
+
+  useEffect(() => {
+    void loadMemoryEngagement(postId);
+  }, [postId, loadMemoryEngagement]);
 
   if (!post || !moment) {
     return (

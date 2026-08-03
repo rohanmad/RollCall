@@ -44,11 +44,13 @@ export function MemoryCard({
   onAuthorPress,
   onCommentPress,
 }: Props) {
-  const { me, toggleLike } = useAppState();
+  const { me, toggleLike, retryMemorySync } = useAppState();
   const [photoIndex, setPhotoIndex] = useState(0);
 
   const liked = post.likedByUserIds.includes(me.id);
   const likeCount = post.likedByUserIds.length;
+  const syncFailed = post.syncStatus === 'failed';
+  const memoryId = post.remoteId ?? post.id;
 
   const onScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const next = Math.round(e.nativeEvent.contentOffset.x / CARD_WIDTH);
@@ -105,6 +107,16 @@ export function MemoryCard({
             </>
           ) : null}
         </Pressable>
+
+        {syncFailed ? (
+          <Pressable
+            onPress={() => void retryMemorySync(memoryId)}
+            style={({ pressed }) => [styles.syncRetry, pressed && styles.pressed]}
+            hitSlop={6}
+          >
+            <Text style={styles.syncRetryText}>Sync failed · Retry</Text>
+          </Pressable>
+        ) : null}
 
         {interactive ? (
           <View style={styles.reactions}>
@@ -206,6 +218,14 @@ const styles = StyleSheet.create({
   metaDot: { color: colors.muted, fontSize: 13 },
   metaText: { fontSize: 13, color: colors.muted },
   location: { flexShrink: 1 },
+  syncRetry: {
+    alignSelf: 'flex-start',
+  },
+  syncRetryText: {
+    fontSize: 12,
+    color: colors.like,
+    fontWeight: '600',
+  },
   reactions: {
     flexDirection: 'row',
     alignItems: 'center',

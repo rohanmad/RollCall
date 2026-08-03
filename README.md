@@ -26,7 +26,12 @@ On first launch you’ll see Welcome → create an account (works locally withou
 
 - Sign up / sign in / sign out / forgot password / session restore
 - Onboarding: photos permission, invite friends, magical timeline loading
-- Production: fill `.env` and apply `supabase/schema.sql`
+- Production: fill `.env`, apply `supabase/schema.sql` (profiles + memories + friends + storage)
+
+Posted memories sync to Supabase when configured (optimistic local UI + background upload/retry).
+Friends/search/invites use Supabase when configured (`friend_requests` + `friendships`).
+Likes/comments use Supabase when configured (`likes` + `comments`).
+In-app notifications use Supabase when configured (`notifications`) — run `supabase/notifications.sql` if needed.
 
 See [PLAN.md](./PLAN.md) for product details.
 

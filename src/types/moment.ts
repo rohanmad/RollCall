@@ -14,6 +14,13 @@ export type PhotoAsset = {
 
 export type MomentStatus = 'draft' | 'shared' | 'dismissed';
 
+export type MemorySyncStatus =
+  | 'pending'
+  | 'uploading'
+  | 'synced'
+  | 'failed'
+  | 'local_only';
+
 export type MemoryChip = {
   id: string;
   label: string;
@@ -34,6 +41,10 @@ export type Moment = {
   centroid?: AssetLocation;
   status: MomentStatus;
   sharedAt?: number;
+  /** Supabase memories.id when posted / queued */
+  remoteId?: string;
+  syncStatus?: MemorySyncStatus;
+  syncError?: string;
 };
 
 export type UserProfile = {
@@ -53,7 +64,7 @@ export type SearchUserResult = {
   avatarUri?: string;
 };
 
-export type InviteStatus = 'pending' | 'accepted' | 'declined';
+export type InviteStatus = 'pending' | 'accepted' | 'declined' | 'canceled';
 
 export type Invite = {
   id: string;
@@ -78,6 +89,10 @@ export type SharedMomentPost = {
   audienceCount: number;
   likedByUserIds: string[];
   comments: PostComment[];
+  /** Same as memories.id when synced / queued for Supabase */
+  remoteId?: string;
+  syncStatus?: MemorySyncStatus;
+  syncError?: string;
 };
 
 export type PostComment = {

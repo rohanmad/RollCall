@@ -1,4 +1,11 @@
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MemoryCard } from '../components/MemoryCard';
@@ -10,10 +17,16 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export function FeedScreen() {
   const navigation = useNavigation<Nav>();
-  const { me, feed, moments, photosById } = useAppState();
+  const {
+    feed,
+    moments,
+    photosById,
+    feedLoading,
+    feedRefreshing,
+    refreshFeed,
+  } = useAppState();
 
   const posts = feed
-    .filter((post) => post.authorId !== me.id)
     .map((post) => {
       const moment = moments.find((m) => m.id === post.momentId);
       if (!moment) return null;
@@ -36,25 +49,42 @@ export function FeedScreen() {
     navigation.navigate('MemoryFocus', { postId });
   };
 
+  const showInitialLoading = feedLoading && posts.length === 0;
+
   return (
     <View style={styles.screen}>
       <FlatList
         data={posts}
         keyExtractor={(item) => item.post.id}
         contentContainerStyle={styles.list}
+        refreshControl={
+          <RefreshControl
+            refreshing={feedRefreshing}
+            onRefresh={() => void refreshFeed({ silent: true })}
+            tintColor={colors.muted}
+          />
+        }
         ListHeaderComponent={
           <View style={styles.header}>
             <Text style={styles.heading}>Memories</Text>
-            <Text style={styles.sub}>A calm timeline of your friends’ lives.</Text>
+            <Text style={styles.sub}>
+              A calm timeline of your friends’ lives.
+            </Text>
           </View>
         }
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>Nothing here yet</Text>
-            <Text style={styles.emptyBody}>
-              When a friend posts a memory, it appears here as a quiet card.
-            </Text>
-          </View>
+          showInitialLoading ? (
+            <View style={styles.empty}>
+              <ActivityIndicator color={colors.muted} />
+            </View>
+          ) : (
+            <View style={styles.empty}>
+              <Text style={styles.emptyTitle}>Nothing here yet</Text>
+              <Text style={styles.emptyBody}>
+                When a friend posts a memory, it appears here.
+              </Text>
+            </View>
+          )
         }
         renderItem={({ item }) => (
           <MemoryCard
@@ -72,7 +102,7 @@ export function FeedScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  list: { paddingTop: 12, paddingBottom: 40 },
+  list: { paddingTop: 12, paddingBottom: 40, flexGrow: 1 },
   header: { paddingHorizontal: 24, paddingBottom: 20, gap: 6 },
   heading: {
     fontSize: 32,
@@ -81,7 +111,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.8,
   },
   sub: { fontSize: 15, color: colors.muted, lineHeight: 22 },
-  empty: { paddingHorizontal: 24, paddingTop: 24, gap: 8 },
+  empty: { paddingHorizontal: 24, paddingTop: 48, gap: 8, alignItems: 'center' },
   emptyTitle: { fontSize: 18, fontWeight: '600', color: colors.ink },
-  emptyBody: { fontSize: 15, color: colors.muted, lineHeight: 22 },
+  emptyBody: { fontSize: 14, color: colors.muted, lineHeight: 20, textAlign: 'center' },
 });

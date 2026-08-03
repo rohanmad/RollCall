@@ -9,7 +9,8 @@ import type { PhotoAsset } from '../../types/moment';
 
 /** First / full scan looks back this far so we don't ingest the whole library. */
 export const INITIAL_LOOKBACK_MS = 30 * 24 * 60 * 60 * 1000;
-const MAX_ASSETS_PER_SCAN = 200;
+/** Hard cap per scan — large libraries stay fast and predictable. */
+export const MAX_ASSETS_PER_SCAN = 50;
 
 export type CameraRollFetchResult = {
   assets: PhotoAsset[];
@@ -50,7 +51,7 @@ export async function fetchCameraRollAssets(
     assets = await new Query()
       .eq(AssetField.MEDIA_TYPE, MediaType.IMAGE)
       .gte(AssetField.CREATION_TIME, sinceMs)
-      .orderBy(AssetField.CREATION_TIME)
+      .orderBy({ key: AssetField.CREATION_TIME, ascending: false })
       .limit(MAX_ASSETS_PER_SCAN)
       .exe();
   } catch (error) {

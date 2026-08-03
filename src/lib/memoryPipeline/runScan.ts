@@ -1,5 +1,6 @@
 import { clusterMoments } from '../clusterMoments';
 import type { Moment, PhotoAsset } from '../../types/moment';
+import { createMemoryDrafts } from './createMemoryDraft';
 import { fetchCameraRollAssets, INITIAL_LOOKBACK_MS } from './fetchCameraRoll';
 import {
   loadScanStore,
@@ -28,8 +29,9 @@ function fingerprint(moment: Moment): string {
 
 /**
  * Incremental camera-roll → memory-candidate pipeline.
- * Pure orchestration over MediaLibrary + clusterMoments + local persistence.
- * Future AI (titles, captions, cover picking) plugs in after clustering.
+ *
+ * Camera Roll → Cluster → Cover → Title → Memory Draft
+ * Each stage is a swappable module under memoryPipeline/.
  */
 export async function runMemoryScan(options?: {
   requestPermission?: boolean;
@@ -96,7 +98,15 @@ export async function runMemoryScan(options?: {
   const photos = [...byId.values()].sort((a, b) => a.createdAt - b.createdAt);
 
   // Need ≥3 photos within ~6 hours (and nearby GPS when present)
-  const clustered = clusterMoments(photos);
+  const clusters = clusterMoments(photos);
+  messages.push(
+    clusters.length
+      ? `Choosing covers & titles for ${clusters.length} memor${clusters.length === 1 ? 'y' : 'ies'}...`
+      : 'Grouping photos...',
+  );
+
+  const drafts = await createMemoryDrafts(clusters);
+
   const dismissed = new Set(store.dismissedIds);
   const existingByFp = new Map(
     store.candidates.map((c) => [fingerprint(c), c] as const),
@@ -105,19 +115,25 @@ export async function runMemoryScan(options?: {
   const mergedCandidates: Moment[] = [];
   const newCandidates: Moment[] = [];
 
-  for (const candidate of clustered) {
-    if (dismissed.has(candidate.id)) continue;
-    const fp = fingerprint(candidate);
+  for (const draft of drafts) {
+    if (dismissed.has(draft.id)) continue;
+    const fp = fingerprint(draft);
     const prior = existingByFp.get(fp);
+
     const stabilized: Moment = prior
       ? {
-          ...candidate,
+          ...draft,
           id: prior.id,
+          // Preserve user edits / previously shown metadata.
           title: prior.title,
           locationLabel: prior.locationLabel,
+          coverPhotoId:
+            prior.coverPhotoId && draft.photoIds.includes(prior.coverPhotoId)
+              ? prior.coverPhotoId
+              : draft.coverPhotoId,
         }
       : {
-          ...candidate,
+          ...draft,
           id: `candidate-${fp}`,
         };
 
@@ -133,7 +149,7 @@ export async function runMemoryScan(options?: {
       month: 'short',
       day: 'numeric',
     });
-    messages.push(`✓ Memory detected · ${day} · ${c.photoIds.length} photos`);
+    messages.push(`✓ ${c.title} · ${day} · ${c.photoIds.length} photos`);
   }
   if (newCandidates.length > 3) {
     messages.push(`✓ ${newCandidates.length - 3} more memories ready`);

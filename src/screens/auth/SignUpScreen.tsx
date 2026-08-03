@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { TextInput, StyleSheet, View } from 'react-native';
 import { AuthScreen } from '../../components/AuthScreen';
 import { FormField } from '../../components/FormField';
+import { PasswordRequirements } from '../../components/PasswordRequirements';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { useToast } from '../../components/Toast';
 import {
   normalizeUsername,
   validateEmail,
+  validateEmailFormat,
   validatePassword,
   validateUsernameFormat,
 } from '../../lib/validation';
@@ -32,6 +34,7 @@ export function SignUpScreen({ onSuccess, onBackToSignIn }: Props) {
   const [usernameOk, setUsernameOk] = useState(false);
   const [checkingUsername, setCheckingUsername] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [attempted, setAttempted] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => emailRef.current?.focus(), 350);
@@ -71,19 +74,15 @@ export function SignUpScreen({ onSuccess, onBackToSignIn }: Props) {
     };
   }, [username, checkUsernameAvailable]);
 
-  const canContinue =
-    !validateEmail(email) &&
-    !validatePassword(password) &&
-    !validateUsernameFormat(username) &&
-    usernameOk &&
-    !checkingUsername &&
-    !loading;
-
   const onContinue = async () => {
-    setEmailError(validateEmail(email));
-    setPasswordError(validatePassword(password));
-    setUsernameError(validateUsernameFormat(username));
-    if (!canContinue) return;
+    setAttempted(true);
+    const eErr = validateEmail(email);
+    const pErr = validatePassword(password);
+    const uErr = validateUsernameFormat(username);
+    setEmailError(eErr);
+    setPasswordError(pErr);
+    setUsernameError(uErr);
+    if (eErr || pErr || uErr || !usernameOk || checkingUsername) return;
 
     setLoading(true);
     const result = await signUp({ email, password, username });
@@ -113,7 +112,7 @@ export function SignUpScreen({ onSuccess, onBackToSignIn }: Props) {
           <PrimaryButton
             label="Continue"
             onPress={onContinue}
-            disabled={!canContinue}
+            disabled={loading}
             loading={loading}
           />
           <PrimaryButton
@@ -131,7 +130,12 @@ export function SignUpScreen({ onSuccess, onBackToSignIn }: Props) {
           value={email}
           onChangeText={(v) => {
             setEmail(v);
-            setEmailError(null);
+            setEmailError(validateEmailFormat(v));
+          }}
+          onBlur={() => {
+            if (email.trim() || attempted) {
+              setEmailError(validateEmail(email));
+            }
           }}
           error={emailError}
           autoCapitalize="none"
@@ -141,19 +145,34 @@ export function SignUpScreen({ onSuccess, onBackToSignIn }: Props) {
           autoComplete="email"
           returnKeyType="next"
         />
-        <FormField
-          label="Password"
-          value={password}
-          onChangeText={(v) => {
-            setPassword(v);
-            setPasswordError(null);
-          }}
-          error={passwordError}
-          secureTextEntry
-          textContentType="newPassword"
-          autoComplete="password-new"
-          returnKeyType="next"
-        />
+        <View style={styles.passwordBlock}>
+          <FormField
+            label="Password"
+            value={password}
+            onChangeText={(v) => {
+              setPassword(v);
+              // Don't show the summary error while requirements list covers it;
+              // only after a submit attempt if still invalid.
+              setPasswordError(
+                attempted && v.length > 0 ? validatePassword(v) : null,
+              );
+            }}
+            onBlur={() => {
+              if (password.length > 0 || attempted) {
+                setPasswordError(validatePassword(password));
+              }
+            }}
+            error={passwordError}
+            secureTextEntry
+            textContentType="newPassword"
+            autoComplete="password-new"
+            returnKeyType="next"
+          />
+          <PasswordRequirements
+            value={password}
+            showFailures={attempted || password.length > 0}
+          />
+        </View>
         <FormField
           label="Username"
           value={username}
@@ -181,4 +200,5 @@ export function SignUpScreen({ onSuccess, onBackToSignIn }: Props) {
 
 const styles = StyleSheet.create({
   fields: { gap: 16 },
+  passwordBlock: { gap: 8 },
 });

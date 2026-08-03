@@ -3,7 +3,7 @@ import { TextInput, StyleSheet, Text, View } from 'react-native';
 import { AuthScreen } from '../../components/AuthScreen';
 import { FormField } from '../../components/FormField';
 import { PrimaryButton } from '../../components/PrimaryButton';
-import { validateEmail } from '../../lib/validation';
+import { validateEmail, validateEmailFormat } from '../../lib/validation';
 import { useAuth } from '../../state/AuthState';
 import { colors } from '../../theme/colors';
 
@@ -70,7 +70,10 @@ export function ForgotPasswordScreen({ onBack }: Props) {
           value={email}
           onChangeText={(v) => {
             setEmail(v);
-            setError(null);
+            setError(validateEmailFormat(v));
+          }}
+          onBlur={() => {
+            if (email.trim()) setError(validateEmail(email));
           }}
           error={error}
           autoCapitalize="none"

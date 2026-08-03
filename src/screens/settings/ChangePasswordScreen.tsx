@@ -10,8 +10,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { FormField } from '../../components/FormField';
+import { PasswordRequirements } from '../../components/PasswordRequirements';
 import { PrimaryButton } from '../../components/PrimaryButton';
-import { passwordsMatch, validatePassword } from '../../lib/validation';
+import {
+  passwordsMatch,
+  validatePassword,
+  validatePasswordPresent,
+} from '../../lib/validation';
 import { useAuth } from '../../state/AuthState';
 import type { RootStackParamList } from '../../navigation/types';
 import { colors } from '../../theme/colors';
@@ -29,6 +34,7 @@ export function ChangePasswordScreen({ navigation }: Props) {
   const [newError, setNewError] = useState<string | null>(null);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [attempted, setAttempted] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => currentRef.current?.focus(), 350);
@@ -36,7 +42,8 @@ export function ChangePasswordScreen({ navigation }: Props) {
   }, []);
 
   const onSave = async () => {
-    const cErr = validatePassword(currentPassword);
+    setAttempted(true);
+    const cErr = validatePasswordPresent(currentPassword);
     const nErr = validatePassword(newPassword);
     const mErr = passwordsMatch(newPassword, confirmPassword);
     setCurrentError(cErr);
@@ -59,12 +66,6 @@ export function ChangePasswordScreen({ navigation }: Props) {
 
     navigation.goBack();
   };
-
-  const canSave =
-    !validatePassword(currentPassword) &&
-    !validatePassword(newPassword) &&
-    !passwordsMatch(newPassword, confirmPassword) &&
-    !loading;
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -92,26 +93,36 @@ export function ChangePasswordScreen({ navigation }: Props) {
               autoComplete="password"
               returnKeyType="next"
             />
-            <FormField
-              label="New Password"
-              value={newPassword}
-              onChangeText={(v) => {
-                setNewPassword(v);
-                setNewError(null);
-                setConfirmError(null);
-              }}
-              error={newError}
-              secureTextEntry
-              textContentType="newPassword"
-              autoComplete="password-new"
-              returnKeyType="next"
-            />
+            <View style={styles.passwordBlock}>
+              <FormField
+                label="New Password"
+                value={newPassword}
+                onChangeText={(v) => {
+                  setNewPassword(v);
+                  setNewError(
+                    attempted && v.length > 0 ? validatePassword(v) : null,
+                  );
+                  setConfirmError(null);
+                }}
+                error={newError}
+                secureTextEntry
+                textContentType="newPassword"
+                autoComplete="password-new"
+                returnKeyType="next"
+              />
+              <PasswordRequirements
+                value={newPassword}
+                showFailures={attempted || newPassword.length > 0}
+              />
+            </View>
             <FormField
               label="Confirm New Password"
               value={confirmPassword}
               onChangeText={(v) => {
                 setConfirmPassword(v);
-                setConfirmError(null);
+                setConfirmError(
+                  v.length > 0 ? passwordsMatch(newPassword, v) : null,
+                );
               }}
               error={confirmError}
               secureTextEntry
@@ -125,7 +136,7 @@ export function ChangePasswordScreen({ navigation }: Props) {
             <PrimaryButton
               label="Save"
               onPress={onSave}
-              disabled={!canSave}
+              disabled={loading}
               loading={loading}
             />
           </View>
@@ -145,5 +156,6 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   fields: { gap: 16 },
+  passwordBlock: { gap: 8 },
   footer: { marginTop: 'auto', paddingTop: 28 },
 });

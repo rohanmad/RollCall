@@ -22,6 +22,7 @@ export type RootStackParamList = {
   Main: undefined;
   UserProfile: { userId: string };
   MemoryFocus: { postId: string };
+  Notifications: undefined;
   Settings: undefined;
   ChangeUsername: undefined;
   ChangeBio: undefined;

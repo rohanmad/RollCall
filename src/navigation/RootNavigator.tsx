@@ -18,6 +18,7 @@ import { DiscoverScreen } from '../screens/DiscoverScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { UserProfileScreen } from '../screens/UserProfileScreen';
 import { MemoryFocusScreen } from '../screens/MemoryFocusScreen';
+import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { SettingsScreen } from '../screens/settings/SettingsScreen';
 import { ChangeUsernameScreen } from '../screens/settings/ChangeUsernameScreen';
 import { ChangeBioScreen } from '../screens/settings/ChangeBioScreen';
@@ -179,7 +180,7 @@ function MainTabs() {
         component={MomentsScreen}
         options={{
           tabBarLabel: ({ focused }) => (
-            <TabLabel label="For you" focused={focused} />
+            <TabLabel label="Create" focused={focused} />
           ),
           tabBarIcon: ({ focused, color }) => (
             <Ionicons
@@ -260,6 +261,15 @@ function AppNavigator() {
             animation: 'slide_from_bottom',
             gestureEnabled: true,
             fullScreenGestureEnabled: true,
+          }}
+        />
+        <AppStack.Screen
+          name="Notifications"
+          component={NotificationsScreen}
+          options={{
+            headerShown: true,
+            headerTitle: 'Notifications',
+            headerBackTitle: 'Back',
           }}
         />
         <AppStack.Screen

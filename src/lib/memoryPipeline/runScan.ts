@@ -97,12 +97,12 @@ export async function runMemoryScan(options?: {
   for (const photo of assets) byId.set(photo.id, photo);
   const photos = [...byId.values()].sort((a, b) => a.createdAt - b.createdAt);
 
-  // Need ≥3 photos within ~6 hours (and nearby GPS when present)
+  // Event clustering: time + GPS (not “newest N photos as one batch”)
   const clusters = clusterMoments(photos);
   messages.push(
     clusters.length
       ? `Choosing covers & titles for ${clusters.length} memor${clusters.length === 1 ? 'y' : 'ies'}...`
-      : 'Grouping photos...',
+      : 'Looking for real outings in your photos...',
   );
 
   const drafts = await createMemoryDrafts(clusters);
@@ -191,7 +191,7 @@ export async function runMemoryScan(options?: {
         ? 'No photos available yet. On iOS, choose more photos for RollCall in Settings → Photos.'
         : 'No photos found in the last 30 days. Take a few shots close together, then scan again.';
   } else if (mergedCandidates.length === 0) {
-    statusMessage = `Found ${photos.length} photo${photos.length === 1 ? '' : 's'}, but need at least 3 taken within a few hours to form a memory.`;
+    statusMessage = `Found ${photos.length} photo${photos.length === 1 ? '' : 's'}, but nothing that looks like a clear outing yet (need a few shots over time, ideally with a shared place).`;
   } else if (newCandidates.length === 0) {
     statusMessage = `Still ${mergedCandidates.length} memor${mergedCandidates.length === 1 ? 'y' : 'ies'} ready — no new groupings this scan.`;
   } else {

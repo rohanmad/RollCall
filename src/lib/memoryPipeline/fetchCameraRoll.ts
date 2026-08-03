@@ -68,16 +68,23 @@ export async function fetchCameraRollAssets(
 
   for (const asset of assets) {
     try {
-      const [createdAtRaw, uri, width, height, location] = await Promise.all([
-        asset.getCreationTime(),
-        asset.getUri(),
-        asset.getWidth().catch(() => undefined),
-        asset.getHeight().catch(() => undefined),
-        asset.getLocation().catch(() => null),
-      ]);
+      const [createdAtRaw, uri, width, height, location, subtypes] =
+        await Promise.all([
+          asset.getCreationTime(),
+          asset.getUri(),
+          asset.getWidth().catch(() => undefined),
+          asset.getHeight().catch(() => undefined),
+          asset.getLocation().catch(() => null),
+          typeof asset.getMediaSubtypes === 'function'
+            ? asset.getMediaSubtypes().catch(() => [] as string[])
+            : Promise.resolve([] as string[]),
+        ]);
 
       if (!createdAtRaw || !uri) continue;
       const createdAt = normalizeTimestamp(createdAtRaw);
+      const isScreenshot = (subtypes ?? []).some(
+        (s) => String(s).toLowerCase() === 'screenshot',
+      );
 
       mapped.push({
         id: `cam-${asset.id}`,
@@ -91,6 +98,7 @@ export async function fetchCameraRollAssets(
               longitude: location.longitude,
             }
           : undefined,
+        isScreenshot,
       });
     } catch (error) {
       console.warn('[memoryPipeline] Skipping asset', asset.id, error);

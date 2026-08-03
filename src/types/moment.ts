@@ -10,6 +10,8 @@ export type PhotoAsset = {
   location?: AssetLocation;
   width?: number;
   height?: number;
+  /** iOS media subtype — screenshots are excluded from memory events. */
+  isScreenshot?: boolean;
 };
 
 export type MomentStatus = 'draft' | 'shared' | 'dismissed';

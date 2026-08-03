@@ -1,143 +1,72 @@
-# RollCall — Product & Architecture Plan
+# RollCall — notes
 
-Living plan. UI and social flows first; camera roll + AI grouping last.
+Working notes for the product as it exists now. Not a formal spec — just what we’re building and why.
 
-## Product one-liner
+## The idea
 
-RollCall turns your camera roll into a **beautiful timeline of life**. Users never manually create posts — memories are AI-generated from recent photos and grouped into events.
+Your camera roll already has your life in it. RollCall groups recent photos into suggested memories, you tweak and post, and friends see them in a calm timeline.
 
-> “This is your life, beautifully organized.”
+No blank “create post” box. No captions/tags for now. Photos first.
 
-## Design philosophy
+> This is your life, beautifully organized.
 
-- **Memories, not content creation**
-- Do **not** copy Instagram layout, spacing, or chrome
-- Inspiration: Apple Photos, Arc, Notion, Airbnb, BeReal (minimalism only)
-- Soft off-white (`#F7F7F5`), large rounded cards (28px), floating shadows, whitespace
-- Photos are the hero; calm typography; minimal chrome
+## Feel
 
-## Memory Card
+Quiet, spacious, Apple Photos / Notion energy — not Instagram. Soft off-white (`#F7F7F5`), big rounded cards, light shadows. Swipe through photos on a card; like and comment are enough.
 
-- Large cover — **swipe** through photos
-- AI title + location (no captions / tags for now)
-- Meta: avatar · name · date · location
-- Reactions: **Like** · **Comment** only (no Share button)
+## How you move through the app
 
-## Screens
+1. Welcome → sign up / sign in  
+2. Photo permission → invite friends → short “magic” scan  
+3. Main tabs:
 
-| Tab | Job |
+| Tab | What it’s for |
 | --- | --- |
-| **Memories** | Timeline of posted memories from you + friends |
-| **For you** | Suggested memories — remove photos, edit title/location, **Post memory** |
-| **Discover** | Memories from **non-friends** posted **near you** |
-| **Profile** | Memory grid; friend count; invite badge; friend icon if connected |
+| **Memories** | Friends’ posts only (yours stay on Profile) |
+| **Create** | Suggested drafts — edit photos/title/place, then post |
+| **Discover** | Nearby non-friends — tab is there; real feed still TODO |
+| **Profile** | Your grid, friends, settings, notifications bell |
 
-## Auth & onboarding
+## What actually ships today
 
-- Welcome → Sign Up / Sign In → Photo permission → Invite friends → Magic loading → Main app
-- Local auth works out of the box (persisted, unique email/username, hashed passwords)
-- Set `EXPO_PUBLIC_SUPABASE_URL` + `EXPO_PUBLIC_SUPABASE_ANON_KEY` and run `supabase/schema.sql` for Auth + Memories
-- See `.env.example`
+**Memory pipeline**  
+Camera roll → **detect events** (time + GPS, not “newest photos in a pile”) → cover → title → draft in Create. Scans after onboarding and when you come back to the app. Incremental. Nothing auto-posts.
 
-## Upcoming
+Clustering aims for “yeah, that was one outing”: soft session gaps, location jumps start a new memory, multi-day trips in the same region stay one, screenshots / mass imports get dropped. Logic lives in `clusterMoments` so we can keep tuning it.
 
-- Discover feed from nearby non-friends
-- Realtime / push notification delivery
-- Proxy OpenAI vision through a backend (key is client-side for demos)
+Titles/covers: local heuristics by default. If `EXPO_PUBLIC_OPENAI_API_KEY` is set, vision (gpt-4o-mini) refines cover + a short title; if that fails we fall back quietly.
 
-## Vision titles & covers
+**Posting**  
+Optimistic UI, then background upload to Supabase Storage + `memories`. Retry on the card if sync fails. Works local-only without cloud env.
 
-- With `EXPO_PUBLIC_OPENAI_API_KEY`, drafts use GPT vision (`gpt-4o-mini` by default)
-- Shortlists top heuristic cover candidates, then vision picks cover + 2–5 word title
-- Falls back to local heuristics when the key is missing or the call fails
+**Friends**  
+Search by username, request / accept / decline / cancel, remove. Graph lives in Supabase (`friend_requests` + `friendships`).
 
-## Notifications (Supabase)
+**Feed**  
+Memories tab = accepted friends’ memories, newest first, pull to refresh. Your posts only on Profile.
 
-- Table: `notifications` (`friend_request`, `friend_accepted`, `friend_memory`, `memory_liked`, `memory_commented`)
-- Client: `src/lib/notifications` — create/list/mark read + event bus for future push
-- Emitted from friends / engagement / publish paths
-- Profile bell → Notifications screen; unread badge; tap navigates to profile or MemoryFocus
-- Additive: `supabase/notifications.sql`
+**Likes & comments**  
+Shared via Supabase. Optimistic taps; full comments load when you open a memory. Counts stay in sync via DB triggers.
 
-## Friends feed (Supabase)
+**Notifications**  
+In-app for: friend request, accepted, friend posted, like, comment. Bell on Profile, unread styling, tap goes to the right place. Push/realtime later.
 
-- Memories tab loads friend memories only (`src/lib/memories/friendsFeed.ts`)
-- Own posts stay on Profile; pull-to-refresh on FeedScreen
-- Delete removes the Supabase `memories` row (likes/comments cascade)
+**Auth**  
+Local accounts work without Supabase. With keys + `supabase/schema.sql`, you get cloud auth, profiles, storage, and the social tables. Additive SQL files exist if you set up in stages.
 
-## Friends (Supabase)
+## Code map (rough)
 
-- Tables: `friend_requests` (pending|accepted|declined|canceled) + `friendships` (canonical `user_a < user_b`)
-- Client: `src/lib/friends` — search, send/accept/decline/cancel, remove, hydrate
-- `subscribeFriendEvents` for future notifications
-- AppState hydrates on login; optimistic invite actions; username search via `profiles`
-- Additive migration: `supabase/friends.sql` (also in `schema.sql`)
+- `src/lib/memoryPipeline` — scan, cluster, cover, title, vision, drafts  
+- `src/lib/memories` — publish, sync queue, friends feed  
+- `src/lib/friends` / `engagement` / `notifications` — social backends  
+- `src/state/AppState.tsx` — most of the app glue  
 
-## Likes & comments (Supabase)
+## Still on the list
 
-- Tables: `likes` + `comments`; `memories.likes_count` / `comments_count` via triggers
-- Client: `src/lib/engagement` — toggle like, add comment, load on MemoryFocus open
-- Optimistic UI; synced memories only; additive `supabase/engagement.sql`
+- Wire up Discover for real  
+- Push notifications (table/client are ready to hang push off)  
+- Don’t ship the OpenAI key in the client forever — proxy it  
 
-## Memories (Supabase)
+## Social rules of thumb
 
-Posted memories sync to the `memories` table:
-
-| Column | App field |
-| --- | --- |
-| id | id |
-| owner_id | ownerId |
-| title | title |
-| cover_photo | coverPhoto (public URL) |
-| photos | photos (URL[]) |
-| location | location |
-| created_at | createdAt |
-| likes_count | likesCount |
-| comments_count | commentsCount |
-
-- Photos upload to Storage bucket `memory-photos`
-- Posting stays optimistic locally; `src/lib/memories` uploads in the background
-- Failures mark the post as `failed` with an in-card **Retry**
-- Without Supabase env, posting stays local-only (`local_only`)
-
-Run the full `supabase/schema.sql` in the SQL editor after setting `.env`.
-
-## Memory pipeline (v1)
-
-```
-Camera Roll → Cluster photos → Choose Cover → Generate Title → Memory Draft
-```
-
-Modules (each swappable):
-
-- `clusterMoments` — time/GPS photo clusters
-- `selectCoverPhoto` / `rankCoverPhotos` — heuristic cover shortlist
-- `enrichMemoryWithVision` — optional OpenAI vision title + cover
-- `resolvePlace` — reverse-geocode → location label
-- `generateMemoryTitle` — heuristic 2–5 word titles (fallback)
-- `createMemoryDraft` — assembles `Moment` for For you
-
-Also:
-
-- Runs after onboarding (Magic Loading) and on app foreground
-- Incremental: only media newer than `lastScannedAt` (30-day lookback on first scan)
-- Candidates appear as drafts in **For you** — never auto-posted
-- Posted memories persist locally (`rollcall.postedMemories.v1`) across restarts
-
-## Done recently
-
-- Tap author on a memory card → full profile
-- For you: remove photos, edit title/location, **Post memory**
-- Tags / captions removed for now
-- Other profiles show friend count + small friend icon if connected
-- Comment opens focused memory view
-- User search in Friends sheet
-- Settings: username, password, bio, log out; tap avatar to edit photo
-- Camera-roll memory detection pipeline
-- Local persistence for posted memories (moments, posts, photo snapshots)
-
-## Social model
-
-- Mutual invites → friends
-- Keeping a memory shares it with friends
-- Discover is ambient / area — separate from your friend graph
+Friends are mutual. Posting shares with friends. Discover (when it exists) is ambient / nearby, not your friend graph.

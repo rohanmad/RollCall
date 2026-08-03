@@ -1,40 +1,34 @@
 # RollCall
 
-Your life, beautifully organized.
+Camera roll → suggested memories → share with friends.
 
-## One-liner
+Expo (SDK 57) + React Native app. Photos are clustered into drafts; you review, post, and engage. With Supabase configured, auth, feed, friends, likes/comments, and notifications sync to the cloud.
 
-RollCall turns your camera roll into a calm **timeline of memories**. Posts are AI-suggested from your photos — you never manually create content.
-
-## Design
-
-Soft off-white, floating memory cards, lots of whitespace. Inspired by Apple Photos / Notion / Airbnb — not Instagram.
-
-See [PLAN.md](./PLAN.md) for full product and build order.
-
-## Run
+## Setup
 
 ```bash
 npm install
-cp .env.example .env   # optional: add Supabase keys for cloud auth
-npm start
+cp .env.example .env
+npm run ios   # or: npm start
 ```
 
-On first launch you’ll see Welcome → create an account (works locally without Supabase).
+Works offline with local auth. For cloud features, fill `.env` and run `supabase/schema.sql` in the Supabase SQL editor (or the additive `friends.sql` / `engagement.sql` / `notifications.sql` if you already ran an older schema).
 
-## Auth
+| Env | Purpose |
+| --- | --- |
+| `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Auth, storage, social graph, feed |
+| `EXPO_PUBLIC_OPENAI_API_KEY` | Optional vision titles + cover picks (`gpt-4o-mini`) |
 
-- Sign up / sign in / sign out / forgot password / session restore
-- Onboarding: photos permission, invite friends, magical timeline loading
-- Production: fill `.env`, apply `supabase/schema.sql` (profiles + memories + friends + storage)
+## What’s in the app
 
-Posted memories sync to Supabase when configured (optimistic local UI + background upload/retry).
-Friends/search/invites use Supabase when configured (`friend_requests` + `friendships`).
-Likes/comments use Supabase when configured (`likes` + `comments`).
-In-app notifications use Supabase when configured (`notifications`) — run `supabase/notifications.sql` if needed.
+- **Create** — incremental camera-roll scan, spatiotemporal clusters, place labels, heuristic or vision titles/covers
+- **Memories** — friends-only feed (your posts live on Profile)
+- **Profile** — memory grid, friends/search/invites, notifications bell
+- **Social** — friend requests, likes, comments, in-app notifications
+- **Sync** — optimistic post + background upload/retry to Supabase Storage + `memories`
 
-See [PLAN.md](./PLAN.md) for product details.
+## Stack
 
-## Repo
+TypeScript · Expo 57 · React Navigation · AsyncStorage · Supabase (Auth, Postgres/RLS, Storage) · optional OpenAI Vision
 
-https://github.com/rohanmad/RollCall
+Product notes: [PLAN.md](./PLAN.md) · Repo: https://github.com/rohanmad/RollCall
